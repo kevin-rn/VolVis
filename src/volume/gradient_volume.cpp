@@ -115,7 +115,29 @@ GradientVoxel GradientVolume::getGradientNearestNeighbor(const glm::vec3& coord)
 // Use the linearInterpolate function that you implemented below.
 GradientVoxel GradientVolume::getGradientLinearInterpolate(const glm::vec3& coord) const
 {
-    return GradientVoxel {};
+	auto floor = [](float f) {
+        return static_cast<int>(f);
+    };
+	auto ceil = [](float f) {
+        return static_cast<int>(f) + 1;
+    };
+	GradientVoxel gv000 = getGradient(floor(coord.x), floor(coord.y), floor(coord.z));
+	GradientVoxel gv001 = getGradient(floor(coord.x), floor(coord.y), ceil(coord.z));
+	GradientVoxel gv010 = getGradient(floor(coord.x), ceil(coord.y), floor(coord.z));
+	GradientVoxel gv011 = getGradient(floor(coord.x), ceil(coord.y), ceil(coord.z));
+	GradientVoxel gv100 = getGradient(ceil(coord.x), floor(coord.y), floor(coord.z));
+	GradientVoxel gv101 = getGradient(ceil(coord.x), floor(coord.y), ceil(coord.z));
+	GradientVoxel gv110 = getGradient(ceil(coord.x), ceil(coord.y), floor(coord.z));
+	GradientVoxel gv111 = getGradient(ceil(coord.x), ceil(coord.y), ceil(coord.z));
+
+	GradientVoxel gvi00 = linearInterpolate(gv000, gv100, coord.x - floor(coord.x));
+	GradientVoxel gvi01 = linearInterpolate(gv001, gv101, coord.x - floor(coord.x));
+	GradientVoxel gvi10 = linearInterpolate(gv010, gv110, coord.x - floor(coord.x));
+	GradientVoxel gvi11 = linearInterpolate(gv011, gv111, coord.x - floor(coord.x));
+
+	GradientVoxel gvi0 = linearInterpolate(gvi00, gvi10, coord.y - floor(coord.y));
+	GradientVoxel gvi1 = linearInterpolate(gvi01, gvi11, coord.y - floor(coord.y));
+    return linearInterpolate(gvi0, gvi1, coord.z - floor(coord.z));
 }
 
 // ======= TODO : IMPLEMENT ========
@@ -123,7 +145,7 @@ GradientVoxel GradientVolume::getGradientLinearInterpolate(const glm::vec3& coor
 // At t=0, linearInterpolate should return g0 and at t=1 it returns g1.
 GradientVoxel GradientVolume::linearInterpolate(const GradientVoxel& g0, const GradientVoxel& g1, float factor)
 {
-    return GradientVoxel {};
+    return GradientVoxel {g0.dir * (1 - factor) + g1.dir * (factor), g0.magnitude * (1 - factor) + g1.magnitude * (factor)};
 }
 
 // This function returns a gradientVoxel without using interpolation
