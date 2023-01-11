@@ -175,8 +175,17 @@ glm::vec4 Renderer::traceRayMIP(const Ray& ray, float sampleStep) const
 // Use the bisectionAccuracy function (to be implemented) to get a more precise isosurface location between two steps.
 glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
 {
-    static constexpr glm::vec3 isoColor { 0.8f, 0.8f, 0.2f };
-    return glm::vec4(isoColor, 1.0f);
+    glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
+	const glm::vec3 increment = sampleStep * ray.direction;
+	for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
+        const float val = m_pVolume->getSampleInterpolate(samplePos);
+		if (m_config.isoValue < val) {
+			static constexpr glm::vec3 isoColor { 0.8f, 0.8f, 0.2f };
+			return glm::vec4(isoColor, 1.0f);
+		}
+    }
+
+    return glm::vec4(glm::vec3(0.0f), 1.0f);
 }
 
 // ======= TODO: IMPLEMENT ========
