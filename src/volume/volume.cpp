@@ -116,12 +116,19 @@ float Volume::getSampleNearestNeighbourInterpolation(const glm::vec3& coord) con
     return getVoxel(roundToPositiveInt(coord.x), roundToPositiveInt(coord.y), roundToPositiveInt(coord.z));
 }
 
-// ======= TODO : IMPLEMENT the functions below for tri-linear interpolation ========
-// ======= Consider using the linearInterpolate and biLinearInterpolate functions ===
 // This function returns the trilinear interpolated value at the continuous 3D position given by coord.
+// A trilinear interpolation is identical to performing a linear interpolation on the outcome of two bilinear interpolations. 
 float Volume::getSampleTriLinearInterpolation(const glm::vec3& coord) const
 {
-    return 0.0f;
+    // check if the coordinate is within volume boundaries, since we only look at ... we only need to check within 1
+    if (glm::any(glm::lessThan(coord - 1.0f, glm::vec3(0))) || glm::any(glm::greaterThanEqual(coord + 1.0f, glm::vec3(m_dim))))
+        return 0.0f;
+
+    glm::vec2 xyCoord = glm::vec2(coord.x, coord.y); 
+    int zfloor = static_cast<int>(coord.z);
+    float frontface = biLinearInterpolate(xyCoord, zfloor);
+    float backface = biLinearInterpolate(xyCoord, zfloor + 1);
+    return linearInterpolate(frontface, backface, zfloor - static_cast<float>(zfloor));
 }
 
 // This function linearly interpolates the value at X using incoming values g0 and g1 given a factor (equal to the positon of x in 1D)
@@ -130,13 +137,31 @@ float Volume::getSampleTriLinearInterpolation(const glm::vec3& coord) const
 //   factor
 float Volume::linearInterpolate(float g0, float g1, float factor)
 {
-    return 0.0f;
+    if (factor < 0) {
+        return g0;
+    } else if (factor > 1) {
+        return g1;
+    } else {
+        return (1.0f - factor) * g0 + factor * g1;
+    }
 }
 
 // This function bi-linearly interpolates the value at the given continuous 2D XY coordinate for a fixed integer z coordinate.
 float Volume::biLinearInterpolate(const glm::vec2& xyCoord, int z) const
 {
-    return 0.0f;
+    const int x1 = static_cast<int>(xyCoord.x), y1 = static_cast<int>(xyCoord.y);
+    const int x2 = x1 + 1, y2 = y1 + 1;
+    const float Xfactor = xyCoord.x - static_cast<float>(xyCoord.x), Yfactor = xyCoord.y - static_cast<float>(xyCoord.y);
+
+    const float v00 = getVoxel(x1, y1, z);
+    const float v01 = getVoxel(x2, y1, z);
+    const float v10 = getVoxel(x1, y2, z);
+    const float v11 = getVoxel(x2, y2, z);
+
+    float g0 = linearInterpolate(v00, v01, Yfactor);
+    float g1 = linearInterpolate(v10, v11, Yfactor);
+
+    return linearInterpolate(g0, g1, Xfactor);
 }
 
 
