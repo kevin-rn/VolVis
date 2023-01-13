@@ -178,9 +178,17 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
     glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
 	const glm::vec3 increment = sampleStep * ray.direction;
 	for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
-        const float val = m_pVolume->getSampleInterpolate(samplePos);
-		if (m_config.isoValue < val) {
+        float val = m_pVolume->getSampleInterpolate(samplePos);
+		if (m_config.isoValue <= val) {
+			if (val - m_config.isoValue >= 0.01) {
+				val = bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue);
+			}
 			static constexpr glm::vec3 isoColor { 0.8f, 0.8f, 0.2f };
+			if (m_config.volumeShading) {
+				volume::GradientVoxel gradient = m_pGradientVolume->getGradientInterpolate(samplePos);
+				glm::vec3 V = samplePos - m_pCamera->position();
+				return glm::vec4(computePhongShading(isoColor, gradient, V, V), 1.0f);
+			}
 			return glm::vec4(isoColor, 1.0f);
 		}
     }
@@ -194,7 +202,32 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
 // iterations such that it does not get stuck in degerate cases.
 float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoValue) const
 {
-    return 0.0f;
+	float t = (t0 + t1) / 2;
+	glm::vec3 samplePos = ray.origin + t1 * ray.direction;
+	float best_t = t1;
+	float min_diff = m_pVolume->getSampleInterpolate(samplePos) - isoValue;
+	samplePos += (t - t1) * ray.direction;
+	for (int i = 0; i < 100; i++) {
+		const float val = m_pVolume->getSampleInterpolate(samplePos);
+		if (val - isoValue < 0.01) {
+			return t;
+		}
+		else if (isoValue < val) {
+			if (val - isoValue < min_diff) {
+				min_diff = val - isoValue;
+				best_t = t;
+			}
+			t1 = t;
+			t = (t0 + t) / 2;
+			samplePos += (t - t1) * ray.direction;
+		}
+		else {
+			t0 = t;
+			t = (t1 + t) / 2;
+			samplePos += (t - t0) * ray.direction;
+		}
+	}
+    return best_t;
 }
 
 // ======= TODO: IMPLEMENT ========
@@ -206,7 +239,16 @@ float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoV
 // You are free to choose any specular power that you'd like.
 glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::GradientVoxel& gradient, const glm::vec3& L, const glm::vec3& V)
 {
-    return glm::vec3(0.0f);
+	float ka = 0.1f;// 3.0f;
+	float kd = 0.7f; // 3.0f;
+	float ks = 0.2f; // 3.0f;
+	float a = 100.0f;
+	const glm::vec3& L_norm = glm::normalize(L);
+	const glm::vec3& V_norm = glm::normalize(V);
+	const glm::vec3& N_norm = glm::normalize(gradient.dir);
+	const glm::vec3& R_norm = glm::normalize(2 * glm::dot(L_norm, N_norm) * N_norm - L_norm);
+	return ka * color + kd * glm::dot(L_norm, N_norm) * color + ks * pow(glm::dot(R_norm, V_norm), a) * color;
+	//return glm::vec3(0.0f);
 }
 
 // ======= TODO: IMPLEMENT ========
