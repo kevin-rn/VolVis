@@ -262,8 +262,12 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
     const glm::vec3 increment = sampleStep * ray.direction;
     for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
         const glm::vec4 val = getTFValue(m_pVolume->getSampleInterpolate(samplePos));
-        const glm::vec3 shadeTemp = computePhongShading(glm::vec3(val), m_pGradientVolume->getGradientInterpolate(samplePos), glm::vec3(1/3), ray.direction);
-        res += glm::vec4(shadeTemp * val.w, val.w);
+        glm::vec3 color = glm::vec3(val);
+        if (m_config.volumeShading) {
+            const glm::vec3 v = samplePos - m_pCamera->position();
+            color = computePhongShading(color, m_pGradientVolume->getGradientInterpolate(samplePos), v, v);
+        }
+        res += glm::vec4(color * val.w, val.w);
     }
 
     return res;
