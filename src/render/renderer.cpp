@@ -261,13 +261,16 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
     glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
     const glm::vec3 increment = sampleStep * ray.direction;
     for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
-        const glm::vec4 val = getTFValue(m_pVolume->getSampleInterpolate(samplePos));
-        glm::vec3 color = glm::vec3(val);
+        float val = m_pVolume->getSampleInterpolate(samplePos);
+        glm::vec4 tfres = getTFValue(val);
+        glm::vec3 color = glm::vec3(tfres);
         if (m_config.volumeShading) {
-            const glm::vec3 v = samplePos - m_pCamera->position();
-            color = computePhongShading(color, m_pGradientVolume->getGradientInterpolate(samplePos), v, v);
+            glm::vec3 v = samplePos - m_pCamera->position();
+            volume::GradientVoxel gradient = m_pGradientVolume->getGradientInterpolate(samplePos);
+            color = computePhongShading(color, gradient, v, v);
         }
-        res += glm::vec4(color * val.w, val.w);
+
+        res += glm::vec4(color * tfres.w, tfres.w);
     }
 
     return res;
@@ -289,7 +292,24 @@ glm::vec4 Renderer::getTFValue(float val) const
 // Use the getTF2DOpacity function that you implemented to compute the opacity according to the 2D transfer function.
 glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
 {
-    return glm::vec4(0.0f);
+    glm::vec4 res = glm::vec4(0.0f);
+
+    glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
+    const glm::vec3 increment = sampleStep * ray.direction;
+    for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
+        float val = m_pVolume->getSampleInterpolate(samplePos);
+        volume::GradientVoxel gradient = m_pGradientVolume->getGradientInterpolate(samplePos);
+        float opacity = getTF2DOpacity(val, gradient.magnitude);
+        glm::vec3 color = glm::vec3(m_config.TF2DColor);
+        if (m_config.volumeShading) {
+            glm::vec3 v = samplePos - m_pCamera->position();
+            color = computePhongShading(color, gradient, v, v);
+        }
+
+        res += glm::vec4(color * opacity, opacity);
+    }
+
+    return res;
 }
 
 // ======= TODO: IMPLEMENT ========
@@ -301,7 +321,16 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
 // The 2D transfer function settings can be accessed through m_config.TF2DIntensity and m_config.TF2DRadius.
 float Renderer::getTF2DOpacity(float intensity, float gradientMagnitude) const
 {
-    return 0.0f;
+    float intensityDiff = std::abs(intensity - m_config.TF2DIntensity);
+    float magDiff = gradientMagnitude - m_pGradientVolume->minMagnitude();
+    float range = m_config.TF2DRadius * magDiff / m_pGradientVolume->maxMagnitude();
+    if (range == 0.0f) {
+        if (intensityDiff == 0.0f) {
+            return 1.0f;
+        }
+        return 0.0f;
+    }
+    return std::max(1.0f - (intensityDiff / range), 0.0f);
 }
 
 // This function computes if a ray intersects with the axis-aligned bounding box around the volume.
