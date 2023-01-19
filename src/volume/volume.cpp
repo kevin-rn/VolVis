@@ -116,12 +116,28 @@ float Volume::getSampleNearestNeighbourInterpolation(const glm::vec3& coord) con
     return getVoxel(roundToPositiveInt(coord.x), roundToPositiveInt(coord.y), roundToPositiveInt(coord.z));
 }
 
-// ======= TODO : IMPLEMENT the functions below for tri-linear interpolation ========
-// ======= Consider using the linearInterpolate and biLinearInterpolate functions ===
 // This function returns the trilinear interpolated value at the continuous 3D position given by coord.
+// A trilinear interpolation is identical to performing a linear interpolation on the outcome of two bilinear interpolations. 
 float Volume::getSampleTriLinearInterpolation(const glm::vec3& coord) const
 {
-    return 0.0f;
+    // check if the coordinate is within volume boundaries, we only need to check within distance 1
+    // as we use the box coordinates in bilinear interpolation that are at most distance 1.
+    if (glm::any(glm::lessThan(coord - 1.0f, glm::vec3(0))) || glm::any(glm::greaterThanEqual(coord + 1.0f, glm::vec3(m_dim))))
+        return 0.0f;
+
+    // Create new vector coordinate for X and Y.
+    const glm::vec2 xyCoord = glm::vec2(coord.x, coord.y); 
+    
+    // As to interpolate between two z-planes we floor z and for the other plane add 1 to it.
+    // Floor the value for Z (use static_cast<int> instead of floor as it already floors the value and changes it to an int).
+    const int zfloor = static_cast<int>(coord.z);
+
+    // Interpolate X and Y coordinates for each of the two z-planes.
+    float z0 = biLinearInterpolate(xyCoord, zfloor);
+    float z1 = biLinearInterpolate(xyCoord, zfloor + 1);
+
+    // Interpolate two resulting values along Z (Use the decimal part of z value as factor). 
+    return linearInterpolate(z0, z1, coord.z - static_cast<float>(zfloor));
 }
 
 // This function linearly interpolates the value at X using incoming values g0 and g1 given a factor (equal to the positon of x in 1D)
@@ -130,13 +146,32 @@ float Volume::getSampleTriLinearInterpolation(const glm::vec3& coord) const
 //   factor
 float Volume::linearInterpolate(float g0, float g1, float factor)
 {
-    return 0.0f;
+        return (1.0f - factor) * g0 + factor * g1;
 }
 
 // This function bi-linearly interpolates the value at the given continuous 2D XY coordinate for a fixed integer z coordinate.
 float Volume::biLinearInterpolate(const glm::vec2& xyCoord, int z) const
 {
-    return 0.0f;
+    // Calculate the 'box' coordinates that contain a given coordinate for separating interpolation per axis.
+    // e.g.     (x1, y2)-----------(x2, y2)
+    //          -----------(x, y)----------
+    //          (x1, y1)-----------(x2, y1)
+    const int x1 = static_cast<int>(xyCoord.x), y1 = static_cast<int>(xyCoord.y);
+    const int x2 = x1 + 1, y2 = y1 + 1;
+
+    // Get the voxels for the four coordinates.
+    const float v00 = getVoxel(x1, y1, z); // bottomleft
+    const float v01 = getVoxel(x2, y1, z); // bottomright
+    const float v10 = getVoxel(x1, y2, z); // topleft
+    const float v11 = getVoxel(x2, y2, z); // topright
+
+    // Interpolate points with the same Y-coordinate on the sides of the cell along x (so linearly interpolate between x values with x as factor).
+    const float Xfactor = xyCoord.x - static_cast<float>(x1);
+    const float v0 = linearInterpolate(v00, v01, Xfactor);
+    const float v1 = linearInterpolate(v10, v11, Xfactor);
+
+    // Interpolate resulting samples along y
+    return linearInterpolate(v0, v1, xyCoord.y - static_cast<float>(y1));
 }
 
 
