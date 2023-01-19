@@ -159,16 +159,14 @@ float Volume::biLinearInterpolate(const glm::vec2& xyCoord, int z) const
     const int x1 = static_cast<int>(xyCoord.x), y1 = static_cast<int>(xyCoord.y);
     const int x2 = x1 + 1, y2 = y1 + 1;
 
-    // Calculate the factor for X.
-    const float Xfactor = xyCoord.x - static_cast<float>(x1);
-
     // Get the voxels for the four coordinates.
     const float v00 = getVoxel(x1, y1, z); // bottomleft
     const float v01 = getVoxel(x2, y1, z); // bottomright
     const float v10 = getVoxel(x1, y2, z); // topleft
     const float v11 = getVoxel(x2, y2, z); // topright
 
-    // Interpolate points with the same Y-coordinate on the sides of the cell along x (so linearly interpolate between x values with y as factor).
+    // Interpolate points with the same Y-coordinate on the sides of the cell along x (so linearly interpolate between x values with x as factor).
+    const float Xfactor = xyCoord.x - static_cast<float>(x1);
     const float v0 = linearInterpolate(v00, v01, Xfactor);
     const float v1 = linearInterpolate(v10, v11, Xfactor);
 
