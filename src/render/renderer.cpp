@@ -239,6 +239,9 @@ float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoV
 // You are free to choose any specular power that you'd like.
 glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::GradientVoxel& gradient, const glm::vec3& L, const glm::vec3& V)
 {
+    if (gradient.magnitude == 0.0f)
+        return glm::vec3(0.0f);
+
 	float ka = 0.1f;// 3.0f;
 	float kd = 0.7f; // 3.0f;
 	float ks = 0.2f; // 3.0f;
