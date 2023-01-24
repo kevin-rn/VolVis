@@ -129,6 +129,7 @@ void Menu::showRayCastTab(std::chrono::duration<double> renderTime)
         ImGui::Text("Render Mode:");
         ImGui::RadioButton("Slicer", pRenderModeInt, int(render::RenderMode::RenderSlicer));
         ImGui::RadioButton("MIP", pRenderModeInt, int(render::RenderMode::RenderMIP));
+        ImGui::RadioButton("MIDA", pRenderModeInt, int(render::RenderMode::RenderMIDA));
         ImGui::RadioButton("IsoSurface Rendering", pRenderModeInt, int(render::RenderMode::RenderIso));
         ImGui::RadioButton("Compositing", pRenderModeInt, int(render::RenderMode::RenderComposite));
         ImGui::RadioButton("2D Transfer Function", pRenderModeInt, int(render::RenderMode::RenderTF2D));
@@ -153,6 +154,19 @@ void Menu::showRayCastTab(std::chrono::duration<double> renderTime)
         ImGui::RadioButton("Nearest Neighbour", pInterpolationModeInt, int(volume::InterpolationMode::NearestNeighbour));
         ImGui::RadioButton("Linear", pInterpolationModeInt, int(volume::InterpolationMode::Linear));
         ImGui::RadioButton("TriCubic", pInterpolationModeInt, int(volume::InterpolationMode::Cubic));
+
+        ImGui::NewLine();
+        ImGui::Text("Phong Shading parameters:");
+        ImGui::SliderFloat("ka", &m_renderConfig.phongKa, 0.0f, 1.0f, "%.1f");
+        ImGui::SliderFloat("kd", &m_renderConfig.phongKd, 0.0f, 1.0f, "%.1f");
+        ImGui::SliderFloat("ks", &m_renderConfig.phongKs, 0.0f, 1.0f, "%.1f");
+        ImGui::SliderFloat("a", &m_renderConfig.phongAlpha, 1.0f, 100.0f, "%.0f");
+
+        ImGui::NewLine();
+        ImGui::Text("Color hue");
+        ImGui::SliderFloat("red", &m_renderConfig.red, 0.0f, 1.0f, "%.1f");
+        ImGui::SliderFloat("green", &m_renderConfig.green, 0.0f, 1.0f, "%.1f");
+        ImGui::SliderFloat("blue", &m_renderConfig.blue, 0.0f, 1.0f, "%.1f");
 
         ImGui::EndTabItem();
     }

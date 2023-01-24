@@ -9,6 +9,7 @@ namespace render {
 enum class RenderMode {
     RenderSlicer,
     RenderMIP,
+    RenderMIDA,
     RenderIso,
     RenderComposite,
     RenderTF2D
@@ -20,6 +21,15 @@ struct RenderConfig {
 
     bool volumeShading { false };
     float isoValue { 95.0f };
+
+    float phongKa { 0.1f };
+    float phongKd { 0.7f };
+    float phongKs { 0.2f };
+    float phongAlpha { 100.0f };
+
+    float red { 0.8f };
+    float green { 0.8f };
+    float blue { 0.2f };
 
     // 1D transfer function.
     std::array<glm::vec4, 256> tfColorMap;

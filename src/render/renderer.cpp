@@ -109,6 +109,10 @@ void Renderer::render()
                 color = traceRayMIP(ray, sampleStep);
                 break;
             }
+            case RenderMode::RenderMIDA: {
+                color = traceRayMIDA(ray, sampleStep);
+                break;
+            }
             case RenderMode::RenderComposite: {
                 color = traceRayComposite(ray, sampleStep);
                 break;
@@ -167,6 +171,32 @@ glm::vec4 Renderer::traceRayMIP(const Ray& ray, float sampleStep) const
     return glm::vec4(glm::vec3(maxVal) / m_pVolume->maximum(), 1.0f);
 }
 
+
+// Function that implements Maximum Intensity Difference Accumulation (MIDA) as presented in 
+// the 'Instant volume visualization using maximum intensity difference accumulation' paper by Bruckner and M. E. Gröller. 
+// Similar to the above MIP function, but instead of searching for de maximum intensity, MIDA searches for the 
+// Maximum accumulation (color and opacity) along a viewing ray.
+glm::vec4 Renderer::traceRayMIDA(const Ray& ray, float sampleStep) const
+{
+    // Initialization for the accumulator to have the lowest value and previous values to be 0 as described in the paper.
+    // Since we need to initialise with a low negative number, we use lowest() instead of min().
+    float accVal = std::numeric_limits<float>::lowest(), prev = 0.0f;
+
+    // Incrementing samplePos directly instead of recomputing it each frame gives a measureable speed-up.
+    glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
+    const glm::vec3 increment = sampleStep * ray.direction;
+    for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
+        const float val = m_pVolume->getSampleInterpolate(samplePos);
+
+        // Update the accumulated value but as we may want to override occlusion relationships we compare the difference to the previous accumulated value.
+        accVal = std::max(val - prev, accVal);
+        prev = val;
+    }
+
+    // Normalize the result to a range of [0 to mpVolume->maximum()].
+    return glm::vec4(glm::vec3(accVal) / m_pVolume->maximum(), 1.0f);
+}
+
 // ======= TODO: IMPLEMENT ========
 // This function should find the position where the ray intersects with the volume's isosurface.
 // If volume shading is DISABLED then simply return the isoColor.
@@ -183,11 +213,12 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
 			if (val - m_config.isoValue >= 0.01) {
 				val = bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue);
 			}
-			static constexpr glm::vec3 isoColor { 0.8f, 0.8f, 0.2f };
+			//static constexpr glm::vec3 isoColor { 0.8f, 0.8f, 0.2f };
+            const glm::vec3 isoColor = { m_config.red, m_config.green, m_config.blue };
 			if (m_config.volumeShading) {
 				volume::GradientVoxel gradient = m_pGradientVolume->getGradientInterpolate(samplePos);
 				glm::vec3 V = samplePos - m_pCamera->position();
-				return glm::vec4(computePhongShading(isoColor, gradient, V, V), 1.0f);
+				return glm::vec4(computePhongShading(isoColor, gradient, V, V, m_config), 1.0f);
 			}
 			return glm::vec4(isoColor, 1.0f);
 		}
@@ -237,15 +268,22 @@ float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoV
 //
 // Use the given color for the ambient/specular/diffuse (you are allowed to scale these constants by a scalar value).
 // You are free to choose any specular power that you'd like.
-glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::GradientVoxel& gradient, const glm::vec3& L, const glm::vec3& V)
+glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::GradientVoxel& gradient, const glm::vec3& L, const glm::vec3& V, render::RenderConfig renderConfig)
 {
     if (gradient.magnitude == 0.0f)
         return glm::vec3(0.0f);
 
-	float ka = 0.1f;// 3.0f;
-	float kd = 0.7f; // 3.0f;
-	float ks = 0.2f; // 3.0f;
-	float a = 100.0f;
+	//float ka = 0.1f;// 3.0f;
+	//float kd = 0.7f; // 3.0f;
+	//float ks = 0.2f; // 3.0f;
+	//float a = 100.0f;
+
+    // For adjustable changes in the GUI
+    float ka = renderConfig.phongKa;
+    float kd = renderConfig.phongKd;
+    float ks = renderConfig.phongKs;
+    float a = renderConfig.phongAlpha;
+    
 	const glm::vec3& L_norm = glm::normalize(L);
 	const glm::vec3& V_norm = glm::normalize(V);
 	const glm::vec3& N_norm = glm::normalize(gradient.dir);
@@ -270,7 +308,7 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
         if (m_config.volumeShading) {
             glm::vec3 v = samplePos - m_pCamera->position();
             volume::GradientVoxel gradient = m_pGradientVolume->getGradientInterpolate(samplePos);
-            color = computePhongShading(color, gradient, v, v);
+            color = computePhongShading(color, gradient, v, v, m_config);
         }
 
         res += glm::vec4(color * tfres.w, tfres.w);
@@ -306,7 +344,7 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
         glm::vec3 color = glm::vec3(m_config.TF2DColor);
         if (m_config.volumeShading) {
             glm::vec3 v = samplePos - m_pCamera->position();
-            color = computePhongShading(color, gradient, v, v);
+            color = computePhongShading(color, gradient, v, v, m_config);
         }
 
         res += glm::vec4(color * opacity, opacity);

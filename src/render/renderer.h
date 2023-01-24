@@ -40,13 +40,14 @@ protected:
     // These functions will be automatically tested.
     glm::vec4 traceRaySlice(const Ray& ray, const glm::vec3& volumeCenter, const glm::vec3& planeNormal) const;
     glm::vec4 traceRayMIP(const Ray& ray, float sampleStep) const;
+    glm::vec4 traceRayMIDA(const Ray& ray, float sampleStep) const;
     glm::vec4 traceRayISO(const Ray& ray, float sampleStep) const;
     glm::vec4 traceRayComposite(const Ray& ray, float sampleStep) const;
     glm::vec4 traceRayTF2D(const Ray& ray, float sampleStep) const;
 
     float bisectionAccuracy(const Ray& ray, float t0, float t1, float isoValue) const;
 
-    static glm::vec3 computePhongShading(const glm::vec3& color, const volume::GradientVoxel& gradient, const glm::vec3& lightDirection, const glm::vec3& viewDirection);
+    static glm::vec3 computePhongShading(const glm::vec3& color, const volume::GradientVoxel& gradient, const glm::vec3& lightDirection, const glm::vec3& viewDirection, render::RenderConfig renderConfig);
 
 private:
     void resizeImage(const glm::ivec2& resolution);
