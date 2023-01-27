@@ -181,7 +181,7 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
         float val = m_pVolume->getSampleInterpolate(samplePos);
 		if (m_config.isoValue <= val) {
 			if (val - m_config.isoValue >= 0.01) {
-				val = bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue);
+				samplePos = ray.origin + bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue) * ray.direction;
 			}
 			static constexpr glm::vec3 isoColor { 0.8f, 0.8f, 0.2f };
 			if (m_config.volumeShading) {
