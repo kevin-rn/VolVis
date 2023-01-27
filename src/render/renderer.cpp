@@ -209,7 +209,7 @@ float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoV
 	samplePos += (t - t1) * ray.direction;
 	for (int i = 0; i < 100; i++) {
 		const float val = m_pVolume->getSampleInterpolate(samplePos);
-		if (val - isoValue < 0.01) {
+		if (val - isoValue < 0.01 && val > isoValue) {
 			return t;
 		}
 		else if (isoValue < val) {
