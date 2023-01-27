@@ -250,7 +250,7 @@ glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::Gr
 	const glm::vec3& V_norm = glm::normalize(V);
 	const glm::vec3& N_norm = glm::normalize(gradient.dir);
 	const glm::vec3& R_norm = glm::normalize(2 * glm::dot(L_norm, N_norm) * N_norm - L_norm);
-	return ka * color + kd * glm::dot(L_norm, N_norm) * color + ks * pow(glm::dot(R_norm, V_norm), a) * color;
+	return ka * color + kd * glm::dot(L_norm, N_norm) * color + ks * pow(glm::max(glm::dot(R_norm, V_norm), 0.0f), a) * color;
 	//return glm::vec3(0.0f);
 }
 
