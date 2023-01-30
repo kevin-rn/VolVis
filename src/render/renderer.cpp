@@ -181,7 +181,7 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
         float val = m_pVolume->getSampleInterpolate(samplePos);
 		if (m_config.isoValue <= val) {
 			if (val - m_config.isoValue >= 0.01) {
-				val = bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue);
+				samplePos = ray.origin + bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue) * ray.direction;
 			}
 			static constexpr glm::vec3 isoColor { 0.8f, 0.8f, 0.2f };
 			if (m_config.volumeShading) {
@@ -209,7 +209,7 @@ float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoV
 	samplePos += (t - t1) * ray.direction;
 	for (int i = 0; i < 100; i++) {
 		const float val = m_pVolume->getSampleInterpolate(samplePos);
-		if (val - isoValue < 0.01) {
+		if (val - isoValue < 0.01 && val > isoValue) {
 			return t;
 		}
 		else if (isoValue < val) {
@@ -250,7 +250,7 @@ glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::Gr
 	const glm::vec3& V_norm = glm::normalize(V);
 	const glm::vec3& N_norm = glm::normalize(gradient.dir);
 	const glm::vec3& R_norm = glm::normalize(2 * glm::dot(L_norm, N_norm) * N_norm - L_norm);
-	return ka * color + kd * glm::dot(L_norm, N_norm) * color + ks * pow(glm::dot(R_norm, V_norm), a) * color;
+	return ka * color + kd * glm::dot(L_norm, N_norm) * color + ks * pow(glm::max(glm::dot(R_norm, V_norm), 0.0f), a) * color;
 	//return glm::vec3(0.0f);
 }
 
