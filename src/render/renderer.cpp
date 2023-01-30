@@ -273,7 +273,7 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
             color = computePhongShading(color, gradient, v, v);
         }
 
-        res += glm::vec4(color * tfres.w, tfres.w);
+		res += glm::vec4((1 - res.w) * color * tfres.w, (1 - res.w) * tfres.w);
     }
 
     return res;
@@ -302,14 +302,14 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
     for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
         float val = m_pVolume->getSampleInterpolate(samplePos);
         volume::GradientVoxel gradient = m_pGradientVolume->getGradientInterpolate(samplePos);
-        float opacity = getTF2DOpacity(val, gradient.magnitude);
+		float opacity = getTF2DOpacity(val, gradient.magnitude) * m_config.TF2DColor.w;
         glm::vec3 color = glm::vec3(m_config.TF2DColor);
         if (m_config.volumeShading) {
             glm::vec3 v = samplePos - m_pCamera->position();
             color = computePhongShading(color, gradient, v, v);
         }
 
-        res += glm::vec4(color * opacity, opacity);
+		res += glm::vec4((1 - res.w) * color * opacity, (1 - res.w) * opacity);
     }
 
     return res;
@@ -326,7 +326,7 @@ float Renderer::getTF2DOpacity(float intensity, float gradientMagnitude) const
 {
     float intensityDiff = std::abs(intensity - m_config.TF2DIntensity);
     float magDiff = gradientMagnitude - m_pGradientVolume->minMagnitude();
-    float range = m_config.TF2DRadius * magDiff / m_pGradientVolume->maxMagnitude();
+	float range = m_config.TF2DRadius * magDiff / (m_pGradientVolume->maxMagnitude() - m_pGradientVolume->minMagnitude());
     if (range == 0.0f) {
         if (intensityDiff == 0.0f) {
             return 1.0f;
