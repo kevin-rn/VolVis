@@ -211,7 +211,7 @@ glm::vec4 Renderer::traceRayISO(const Ray& ray, float sampleStep) const
         float val = m_pVolume->getSampleInterpolate(samplePos);
 		if (m_config.isoValue <= val) {
 			if (val - m_config.isoValue >= 0.01) {
-				val = bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue);
+				samplePos = ray.origin + bisectionAccuracy(ray, t - sampleStep, t, m_config.isoValue) * ray.direction;
 			}
 			//static constexpr glm::vec3 isoColor { 0.8f, 0.8f, 0.2f };
             const glm::vec3 isoColor = { m_config.red, m_config.green, m_config.blue };
@@ -240,7 +240,7 @@ float Renderer::bisectionAccuracy(const Ray& ray, float t0, float t1, float isoV
 	samplePos += (t - t1) * ray.direction;
 	for (int i = 0; i < 100; i++) {
 		const float val = m_pVolume->getSampleInterpolate(samplePos);
-		if (val - isoValue < 0.01) {
+		if (val - isoValue < 0.01 && val > isoValue) {
 			return t;
 		}
 		else if (isoValue < val) {
@@ -288,7 +288,7 @@ glm::vec3 Renderer::computePhongShading(const glm::vec3& color, const volume::Gr
 	const glm::vec3& V_norm = glm::normalize(V);
 	const glm::vec3& N_norm = glm::normalize(gradient.dir);
 	const glm::vec3& R_norm = glm::normalize(2 * glm::dot(L_norm, N_norm) * N_norm - L_norm);
-	return ka * color + kd * glm::dot(L_norm, N_norm) * color + ks * pow(glm::dot(R_norm, V_norm), a) * color;
+	return ka * color + kd * glm::dot(L_norm, N_norm) * color + ks * pow(glm::max(glm::dot(R_norm, V_norm), 0.0f), a) * color;
 	//return glm::vec3(0.0f);
 }
 
@@ -311,7 +311,7 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
             color = computePhongShading(color, gradient, v, v, m_config);
         }
 
-        res += glm::vec4(color * tfres.w, tfres.w);
+		res += glm::vec4((1 - res.w) * color * tfres.w, (1 - res.w) * tfres.w);
     }
 
     return res;
@@ -340,14 +340,14 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
     for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
         float val = m_pVolume->getSampleInterpolate(samplePos);
         volume::GradientVoxel gradient = m_pGradientVolume->getGradientInterpolate(samplePos);
-        float opacity = getTF2DOpacity(val, gradient.magnitude);
+		float opacity = getTF2DOpacity(val, gradient.magnitude) * m_config.TF2DColor.w;
         glm::vec3 color = glm::vec3(m_config.TF2DColor);
         if (m_config.volumeShading) {
             glm::vec3 v = samplePos - m_pCamera->position();
             color = computePhongShading(color, gradient, v, v, m_config);
         }
 
-        res += glm::vec4(color * opacity, opacity);
+		res += glm::vec4((1 - res.w) * color * opacity, (1 - res.w) * opacity);
     }
 
     return res;
@@ -364,7 +364,7 @@ float Renderer::getTF2DOpacity(float intensity, float gradientMagnitude) const
 {
     float intensityDiff = std::abs(intensity - m_config.TF2DIntensity);
     float magDiff = gradientMagnitude - m_pGradientVolume->minMagnitude();
-    float range = m_config.TF2DRadius * magDiff / m_pGradientVolume->maxMagnitude();
+	float range = m_config.TF2DRadius * magDiff / (m_pGradientVolume->maxMagnitude() - m_pGradientVolume->minMagnitude());
     if (range == 0.0f) {
         if (intensityDiff == 0.0f) {
             return 1.0f;
