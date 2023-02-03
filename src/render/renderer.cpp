@@ -178,23 +178,34 @@ glm::vec4 Renderer::traceRayMIP(const Ray& ray, float sampleStep) const
 // Maximum accumulation (color and opacity) along a viewing ray.
 glm::vec4 Renderer::traceRayMIDA(const Ray& ray, float sampleStep) const
 {
-    // Initialization for the accumulator to have the lowest value and previous values to be 0 as described in the paper.
-    // Since we need to initialise with a low negative number, we use lowest() instead of min().
-    float accVal = std::numeric_limits<float>::lowest(), prev = 0.0f;
+    // Initialization for the maximum and accumulated values (color + opacity) to be 0 as described in the paper.
+    float fmax = 0.0f, accOpacity = 0.0f;
+    glm::vec3 accColor = glm::vec3(0);
 
     // Incrementing samplePos directly instead of recomputing it each frame gives a measureable speed-up.
     glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
     const glm::vec3 increment = sampleStep * ray.direction;
     for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
-        const float val = m_pVolume->getSampleInterpolate(samplePos);
+        const float fp = m_pVolume->getSampleInterpolate(samplePos);
+        if (fp > fmax) {
+            // Calculate the weighted factor by substracting 1 with the change in new maximum.
+            float factor = 1.0f - (fp - fmax);
+            fmax = fp;
 
-        // Update the accumulated value but as we may want to override occlusion relationships we compare the difference to the previous accumulated value.
-        accVal = std::max(val - prev, accVal);
-        prev = val;
+            // Get the color and opacity for the current location.
+            glm::vec4 tfres = getTFValue(fp);
+
+            // For overriding occlusion relationships
+            float temp = (1.0f - factor * accOpacity) * tfres.w;
+            accColor = factor * accColor + temp * glm::vec3(tfres);
+            accOpacity = factor * accOpacity + temp;
+
+            // Early ray termination.
+            if (accOpacity >= 0.95)
+                break;
+        }
     }
-
-    // Normalize the result to a range of [0 to mpVolume->maximum()].
-    return glm::vec4(glm::vec3(accVal) / m_pVolume->maximum(), 1.0f);
+    return glm::vec4(accColor, accOpacity);
 }
 
 // ======= TODO: IMPLEMENT ========
