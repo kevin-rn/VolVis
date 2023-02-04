@@ -174,38 +174,48 @@ glm::vec4 Renderer::traceRayMIP(const Ray& ray, float sampleStep) const
 
 // Function that implements Maximum Intensity Difference Accumulation (MIDA) as presented in 
 // the 'Instant volume visualization using maximum intensity difference accumulation' paper by Bruckner and M. E. Gröller. 
-// Similar to the above MIP function, but instead of searching for de maximum intensity, MIDA searches for the 
-// Maximum accumulation (color and opacity) along a viewing ray.
+// Similar to the above Composite function, but with the additional weighting of previous accumulated color and opacity values.
 glm::vec4 Renderer::traceRayMIDA(const Ray& ray, float sampleStep) const
 {
-    // Initialization for the maximum and accumulated values (color + opacity) to be 0 as described in the paper.
-    float fmax = 0.0f, accOpacity = 0.0f;
-    glm::vec3 accColor = glm::vec3(0);
+    // Initialization for the accumulated values (color + opacity) and maximum to be 0 as described in the paper.
+    glm::vec4 res = glm::vec4(0.0f);
+    float fmax = 0.0f;
 
-    // Incrementing samplePos directly instead of recomputing it each frame gives a measureable speed-up.
     glm::vec3 samplePos = ray.origin + ray.tmin * ray.direction;
     const glm::vec3 increment = sampleStep * ray.direction;
     for (float t = ray.tmin; t <= ray.tmax; t += sampleStep, samplePos += increment) {
-        const float fp = m_pVolume->getSampleInterpolate(samplePos);
-        if (fp > fmax) {
-            // Calculate the weighted factor by substracting 1 with the change in new maximum.
-            float factor = 1.0f - (fp - fmax);
-            fmax = fp;
+        float val = m_pVolume->getSampleInterpolate(samplePos);
+
+        // Check for change in maximum
+        if (val > fmax) {
+            // For transitioning between MIDA and DVR (compositing).
+            float y_value = (m_config.midatransition < 0) ? (1.0f + m_config.midatransition) : 1.0f;
+            // Calculate the weighted factor and update maximum.
+            float factor = 1.0f - (val - fmax) * y_value;
+            fmax = val;
 
             // Get the color and opacity for the current location.
-            glm::vec4 tfres = getTFValue(fp);
+            glm::vec4 tfres = getTFValue(val);
+            glm::vec3 color = glm::vec3(tfres);
+            if (m_config.volumeShading) {
+                glm::vec3 v = samplePos - m_pCamera->position();
+                volume::GradientVoxel gradient = m_pGradientVolume->getGradientInterpolate(samplePos);
+                color = computePhongShading(color, gradient, v, v, m_config);
+            }
 
             // For overriding occlusion relationships
-            float temp = (1.0f - factor * accOpacity) * tfres.w;
-            accColor = factor * accColor + temp * glm::vec3(tfres);
-            accOpacity = factor * accOpacity + temp;
+            float temp = (1 - factor * res.w) * tfres.w;
+            color = factor * glm::vec3(res) + temp * color;
+            float opacity = factor * res.w + temp;
+            res = glm::vec4(color, opacity);
 
             // Early ray termination.
-            if (accOpacity >= 0.95)
+            if (res.w >= 0.95) {
                 break;
+            }
         }
     }
-    return glm::vec4(accColor, accOpacity);
+    return res;
 }
 
 // ======= TODO: IMPLEMENT ========
@@ -323,6 +333,11 @@ glm::vec4 Renderer::traceRayComposite(const Ray& ray, float sampleStep) const
         }
 
 		res += glm::vec4((1 - res.w) * color * tfres.w, (1 - res.w) * tfres.w);
+
+        // Early ray termination.
+        if (res.w >= 0.95) {
+            break;
+        }
     }
 
     return res;
@@ -359,6 +374,11 @@ glm::vec4 Renderer::traceRayTF2D(const Ray& ray, float sampleStep) const
         }
 
 		res += glm::vec4((1 - res.w) * color * opacity, (1 - res.w) * opacity);
+
+        // Early ray termination.
+        if (res.w >= 0.95) {
+            break;
+        }
     }
 
     return res;

@@ -168,6 +168,10 @@ void Menu::showRayCastTab(std::chrono::duration<double> renderTime)
         ImGui::SliderFloat("green", &m_renderConfig.green, 0.0f, 1.0f, "%.1f");
         ImGui::SliderFloat("blue", &m_renderConfig.blue, 0.0f, 1.0f, "%.1f");
 
+        ImGui::NewLine();
+        ImGui::Text("Transition between Composite - MIDA");
+        ImGui::SliderFloat("y-factor", &m_renderConfig.midatransition, -1.0f, 0.0f, "%.1f");
+
         ImGui::EndTabItem();
     }
 }

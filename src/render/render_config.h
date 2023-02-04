@@ -31,6 +31,8 @@ struct RenderConfig {
     float green { 0.8f };
     float blue { 0.2f };
 
+    float midatransition { 0.0f };
+
     // 1D transfer function.
     std::array<glm::vec4, 256> tfColorMap;
     // Used to convert from a value to an index in the color map.
