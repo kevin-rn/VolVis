@@ -173,10 +173,11 @@ glm::vec4 Renderer::traceRayMIP(const Ray& ray, float sampleStep) const
 
 
 // Function that implements Maximum Intensity Difference Accumulation (MIDA) as presented in 
-// the 'Instant volume visualization using maximum intensity difference accumulation' paper by Bruckner and M. E. Gröller. 
+// the 'Instant volume visualization using maximum intensity difference accumulation' paper by Bruckner and M. E. GrÃ¶ller. 
 // Similar to the above Composite function, but with the additional weighting of previous accumulated color and opacity values.
 glm::vec4 Renderer::traceRayMIDA(const Ray& ray, float sampleStep) const
 {
+    //TODO: MIDA not working properly --> normalize the intensity value for all MIDA calculations (use original value for the TF Lookup) and an issue in the gamma calculation.
     // Initialization for the accumulated values (color + opacity) and maximum to be 0 as described in the paper.
     glm::vec4 res = glm::vec4(0.0f);
     float fmax = 0.0f;
